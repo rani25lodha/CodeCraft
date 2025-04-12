@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codecraft-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: codecraft-api
+  template:
+    metadata:
+      labels:
+        app: codecraft-api
+    spec:
+      containers:
+      - name: codecraft-api
+        image: codecraftacr.azurecr.io/codecraft-api:latest
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+      - name: acr-auth

@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    environment {
+        ACR_NAME = 'codecraftacr'
+        IMAGE_NAME = "${ACR_NAME}.azurecr.io/codecraft-api"
+        AZURE_CREDENTIALS = credentials('azure-service-principal') // Replace with your Jenkins credential ID
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/rani25lodha/CodeCraft' 
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}", './App/CodeCraftDemo')
+
+                }
+            }
+        }
+
+        stage('Push to ACR') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'azure-service-principal', usernameVariable: 'AZURE_USERNAME', passwordVariable: 'AZURE_PASSWORD')]) {
+                        sh """
+                            az login --service-principal -u $AZURE_USERNAME -p $AZURE_PASSWORD --tenant YOUR_TENANT_ID
+                            az acr login --name $ACR_NAME
+                            docker tag ${IMAGE_NAME}:${env.BUILD_NUMBER} ${IMAGE_NAME}:latest
+                            docker push ${IMAGE_NAME}:${env.BUILD_NUMBER}
+                            docker push ${IMAGE_NAME}:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to AKS') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'azure-service-principal', usernameVariable: 'AZURE_USERNAME', passwordVariable: 'AZURE_PASSWORD')]) {
+                        sh """
+                            az login --service-principal -u $AZURE_USERNAME -p $AZURE_PASSWORD --tenant YOUR_TENANT_ID
+                            az aks get-credentials --resource-group codecraft-resource-grp --name codecraft_aks
+                            kubectl apply -f k8s/deployment.yaml
+                            kubectl apply -f k8s/service.yaml
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
