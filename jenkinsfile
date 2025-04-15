@@ -21,7 +21,8 @@ pipeline {
 
         stage('Build .NET App') {
             steps {
-                bat 'dotnet publish App/CodeCraftDemo/CodeCraftDemo/CodeCraftDemo.csproj -c Release -o out'
+                bat 'dotnet publish App/CodeCraftDemo/CodeCraftDemo/CodeCraftDemo.csproj -c Release -o App/CodeCraftDemo/CodeCraftDemo/out'
+
             }
         }
 
