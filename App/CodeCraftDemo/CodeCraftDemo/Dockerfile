@@ -16,8 +16,5 @@ RUN dotnet publish "CodeCraftDemo.csproj" -c Release -o /app/publish
 # Stage 3: Final image
 FROM base AS final
 WORKDIR /app
-
-# ✅ This copies from the `build` stage’s output folder
 COPY --from=build /app/publish .
-
 ENTRYPOINT ["dotnet", "CodeCraftDemo.dll"]
