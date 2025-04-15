@@ -10,12 +10,14 @@ WORKDIR /src
 COPY CodeCraftDemo.csproj ./
 RUN dotnet restore "CodeCraftDemo.csproj"
 
-COPY . .
-
+COPY . ./
 RUN dotnet publish "CodeCraftDemo.csproj" -c Release -o /app/publish
 
 # Stage 3: Final image
 FROM base AS final
 WORKDIR /app
-COPY ./out .        # ⬅️ Make sure this matches the actual published folder
+
+# ✅ This copies from the `build` stage’s output folder
+COPY --from=build /app/publish .
+
 ENTRYPOINT ["dotnet", "CodeCraftDemo.dll"]
