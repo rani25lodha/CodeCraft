@@ -20,11 +20,10 @@ pipeline {
         }
 
         stage('Build .NET App') {
-            steps {
-                bat 'dotnet publish App/CodeCraftDemo/CodeCraftDemo/CodeCraftDemo.csproj -c Release -o App/CodeCraftDemo/CodeCraftDemo/out'
-
-            }
-        }
+    steps {
+        bat 'dotnet publish App\\CodeCraftDemo\\CodeCraftDemo\\CodeCraftDemo.csproj -c Release -o App\\CodeCraftDemo\\CodeCraftDemo\\out'
+    }
+}
 
        stage('Build Docker Image') {
     steps {
