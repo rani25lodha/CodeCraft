@@ -24,18 +24,14 @@ pipeline {
         bat 'dotnet publish App\\CodeCraftDemo\\CodeCraftDemo\\CodeCraftDemo.csproj -c Release -o App\\CodeCraftDemo\\CodeCraftDemo\\out'
     }
 }
-
-       stage('Build Docker Image') {
+stage('Build Docker Image') {
     steps {
-        script {
-            dir('App/CodeCraftDemo/CodeCraftDemo') {
-                docker.build(
-                    "${env.ACR_LOGIN_SERVER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
-                )
-            }
-        }
+        bat """
+        docker build -t %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% App\\CodeCraftDemo\\CodeCraftDemo
+        """
     }
 }
+
 
 
 
