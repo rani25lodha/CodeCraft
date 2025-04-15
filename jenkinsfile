@@ -9,8 +9,7 @@ pipeline {
         IMAGE_TAG = "build-${BUILD_NUMBER}"
         RESOURCE_GROUP = 'codecraft-resource-grp'
         AKS_CLUSTER = 'codecraft_aks'
-        TF_WORKING_DIR = 'App/terraform'
-        DOCKER_CONTEXT_DIR = 'App/CodeCraftDemo/CodeCraftDemo'
+        TF_WORKING_DIR = 'terraform'
     }
 
     stages {
@@ -20,23 +19,29 @@ pipeline {
             }
         }
 
+        stage('Build .NET App') {
+            steps {
+                bat 'dotnet publish App\\CodeCraftDemo\\CodeCraftDemo\\CodeCraftDemo.csproj -c Release -o App\\CodeCraftDemo\\CodeCraftDemo\\out'
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 bat """
-                docker build -t %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% %DOCKER_CONTEXT_DIR%
+                docker build -t %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% App\\CodeCraftDemo\\CodeCraftDemo
                 """
             }
         }
 
         stage('Terraform Init & Apply') {
             steps {
-                withCredentials([azureServicePrincipal(credentialsId: AZURE_CREDENTIALS_ID)]) {
-                    bat """
-                    cd %TF_WORKING_DIR%
-                    terraform init
-                    terraform apply -auto-approve
-                    cd ../..
-                    """
+                dir('terraform') {
+                    withCredentials([azureServicePrincipal(credentialsId: AZURE_CREDENTIALS_ID)]) {
+                        bat """
+                        terraform init
+                        terraform apply -auto-approve
+                        """
+                    }
                 }
             }
         }
@@ -66,8 +71,8 @@ pipeline {
         stage('Deploy to AKS') {
             steps {
                 bat """
-                kubectl apply -f App\\k8s\\deployment.yaml
-                kubectl apply -f App\\k8s\\service.yaml
+                kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
                 """
             }
         }
