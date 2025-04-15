@@ -3,55 +3,85 @@ pipeline {
 
     environment {
         ACR_NAME = 'codecraftacr'
-        IMAGE_NAME = "${ACR_NAME}.azurecr.io/codecraft-api"
-        AZURE_CREDENTIALS = credentials('azure-service-principal') // Replace with your Jenkins credential ID
+        AZURE_CREDENTIALS_ID = 'jenkins-pipeline-sp'
+        ACR_LOGIN_SERVER = "${ACR_NAME}.azurecr.io"
+        IMAGE_NAME = 'codecraft-api'
+        IMAGE_TAG = "build-${BUILD_NUMBER}"
+        RESOURCE_GROUP = 'codecraft-resource-grp'
+        AKS_CLUSTER = 'codecraft_aks'
+        TF_WORKING_DIR = 'terraform'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/rani25lodha/CodeCraft' 
+                git branch: 'main', url: 'https://github.com/rani25lodha/CodeCraft.git'
+            }
+        }
+
+        stage('Build .NET App') {
+            steps {
+                bat 'dotnet publish App/CodeCraftDemo/CodeCraftDemo.csproj -c Release -o out'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}", './App/CodeCraftDemo')
+                bat "docker build -t %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% -f App/CodeCraftDemo/Dockerfile App/CodeCraftDemo"
+            }
+        }
 
+        stage('Terraform Init & Apply') {
+            steps {
+                withCredentials([azureServicePrincipal(credentialsId: AZURE_CREDENTIALS_ID)]) {
+                    bat """
+                    cd %TF_WORKING_DIR%
+                    terraform init
+                    terraform apply -auto-approve
+                    cd ..
+                    """
                 }
             }
         }
 
-        stage('Push to ACR') {
+        stage('Login to ACR') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'azure-service-principal', usernameVariable: 'AZURE_USERNAME', passwordVariable: 'AZURE_PASSWORD')]) {
-                        sh """
-                            az login --service-principal -u $AZURE_USERNAME -p $AZURE_PASSWORD --tenant YOUR_TENANT_ID
-                            az acr login --name $ACR_NAME
-                            docker tag ${IMAGE_NAME}:${env.BUILD_NUMBER} ${IMAGE_NAME}:latest
-                            docker push ${IMAGE_NAME}:${env.BUILD_NUMBER}
-                            docker push ${IMAGE_NAME}:latest
-                        """
-                    }
-                }
+                bat "az acr login --name %ACR_NAME%"
+            }
+        }
+
+        stage('Push Docker Image to ACR') {
+            steps {
+                bat """
+                docker tag %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG% %ACR_LOGIN_SERVER%/%IMAGE_NAME%:latest
+                docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:%IMAGE_TAG%
+                docker push %ACR_LOGIN_SERVER%/%IMAGE_NAME%:latest
+                """
+            }
+        }
+
+        stage('Get AKS Credentials') {
+            steps {
+                bat "az aks get-credentials --resource-group %RESOURCE_GROUP% --name %AKS_CLUSTER% --overwrite-existing"
             }
         }
 
         stage('Deploy to AKS') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'azure-service-principal', usernameVariable: 'AZURE_USERNAME', passwordVariable: 'AZURE_PASSWORD')]) {
-                        sh """
-                            az login --service-principal -u $AZURE_USERNAME -p $AZURE_PASSWORD --tenant YOUR_TENANT_ID
-                            az aks get-credentials --resource-group codecraft-resource-grp --name codecraft_aks
-                            kubectl apply -f k8s/deployment.yaml
-                            kubectl apply -f k8s/service.yaml
-                        """
-                    }
-                }
+                bat """
+                kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
+                """
             }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ All stages completed successfully!'
+        }
+        failure {
+            echo '❌ Build failed.'
         }
     }
 }
