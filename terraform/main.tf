@@ -47,6 +47,7 @@ resource "azurerm_kubernetes_cluster" "codecraft_aks"{
 resource "azurerm_role_assignment" "aks_acr_pull"{
     scope = azurerm_container_registry.codecraft_acr.id
     role_definition_name ="AcrPull"
-    principal_id = azurerm_kubernetes_cluster.codecraft_aks.identity.principal_id
+    principal_id = azurerm_kubernetes_cluster.codecraft_aks.identity[0].principal_id
+
 
 }
